@@ -1,0 +1,7 @@
+node_modules/
+dist/
+coverage/
+.clasp.json
+.clasprc.json
+.DS_Store
+CLAUDE.local.md
