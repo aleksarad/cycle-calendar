@@ -50,7 +50,8 @@ Invalid settings fall back to defaults and are reported in Status. Never throw o
 
 ### Tab: `Status` (written by the script, read-only for the user)
 
-- Average cycle length used, and how many cycles it was based on
+- Typical cycle length used (the median), and how many cycles it was based on
+- Cycle range: shortest and longest of the cycles used, with a note when cycles are irregular (see §4.1)
 - Excluded intervals (outliers) and why
 - Next predicted period start
 - Today's estimated phase and cycle day
@@ -61,12 +62,20 @@ Invalid settings fall back to defaults and are reported in Status. Never throw o
 
 ## 4. Cycle math (pure, no Apps Script globals)
 
-### 4.1 Average cycle length
+### 4.1 Typical cycle length
 
-- Sort unique start dates ascending; compute intervals between consecutive dates.
-- Exclude intervals outside **21–45 days** (likely a missed log or anomaly) and record why.
-- Average the most recent N valid intervals, rounded to the nearest whole day.
-- With no valid intervals, use the default cycle length.
+Outliers are judged against the user's own history rather than fixed population limits, so someone whose normal cycle is 50 days is predicted correctly instead of having every cycle discarded.
+
+1. Sort unique start dates ascending; compute intervals between consecutive dates.
+2. **Plausibility bounds (always applied):** exclude intervals under **15** or over **90** days. Neither can be a single cycle; they come from an extra or mistyped date, or from several missed logs.
+3. **Personal outliers:** take the median `m` of the most recent N (cycles to average) plausible intervals.
+   - With **3 or more** of them, exclude any interval outside **0.75·m – 1.6·m** (rounded to whole days). Over 1.6·m usually means a missed log (two cycles counted as one). Under 0.75·m usually means an extra or mistyped date. For `m = 28` this gives 21–44, close to the old fixed range.
+   - With **fewer than 3**, there's too little history to judge, so fall back to the fixed **21–45** range.
+4. **Typical length = median** of the most recent N intervals that remain, rounded to the nearest whole day (for an even count, the mean of the two middle values, with .5 rounding up). The median keeps one unusual cycle from dragging every prediction.
+5. With no intervals left, use the default cycle length.
+6. **Variability:** with 2 or more intervals used, report the shortest and longest. If `longest − shortest` is **more than 7 days**, the cycles count as **irregular**. Status says so, and predicted events say that dates could shift (see §5).
+
+**Exclusion wording** stays neutral and never implies that a real cycle is wrong. For example, "45 days is longer than usual for you (typically 28), possibly a missed log, so it's left out of the estimate", or "10 days is too short to be a full cycle, possibly an extra or mistyped date".
 
 ### 4.2 Phase boundaries for a cycle of length `L` (day 1 = period start)
 
@@ -83,8 +92,8 @@ Anchor ovulation on the luteal phase, **not** on day 14:
 
 ### 4.3 Schedule
 
-- **Current cycle:** anchored on the most recent logged start, with average length.
-- **Future cycles:** repeat with average length until `today + monthsAhead`.
+- **Current cycle:** anchored on the most recent logged start, with the typical length (§4.1).
+- **Future cycles:** repeat with the typical length until `today + monthsAhead`.
 - **If today is past the predicted next start with no new log:** keep predicting from the predicted dates and show a "period may be late — log your start date" warning in Status.
 - **Historical cycles** (before the most recent start) are out of scope for v1.
 
@@ -124,6 +133,7 @@ Generated from a single editable content module (`src/content/phases.ts`):
 - What's generally happening hormonally (1–2 sentences)
 - Commonly reported experiences: energy, mood, physical symptoms (short list)
 - "Estimated from your last N cycles."
+- **When cycles are irregular** (§4.1 step 6), on predicted cycles only: "Your recent cycles ranged from X to Y days, so these dates could shift."
 - Footer: "General information, not medical advice. Not for contraception."
   The Ovulatory description must explicitly say the timing is an estimate.
 
@@ -186,8 +196,14 @@ appsscript.json
 
 ## 9. Test cases (core)
 
-- Average from 6+ regular cycles; from exactly 2 starts; fallback with 0–1 starts
-- Outlier intervals (e.g. 14, 60 days) excluded and reported
+- Typical length from 6+ regular cycles; from exactly 2 starts; fallback with 0–1 starts
+- Median, not mean: one long cycle among regular ones doesn't move the prediction
+- Plausibility bounds: intervals under 15 or over 90 days are always excluded
+- Personal outliers: with 3+ intervals, a missed log (≈2·m) and an extra log (≈0.5·m) are excluded and reported
+- Consistently long cycles (e.g. 50 days) are kept and predicted, not discarded
+- With fewer than 3 intervals, the fixed 21–45 range applies (e.g. 14 and 60 days excluded)
+- Variability: shortest/longest reported; a range over 7 days is flagged irregular; exactly 7 is not
+- Irregular note appears on predicted cycles only
 - Unsorted and duplicate dates handled
 - Phase boundaries for 21, 28, 35 and 45-day cycles
 - Short cycle + long period edge case (no overlap, no negative lengths)
@@ -204,7 +220,7 @@ appsscript.json
   - Overview with a screenshot/GIF placeholder
   - Setup for non-technical users (template copy) and developers (clasp)
   - How the predictions work
-  - **Design decisions:** luteal-anchored math, private calendar, one event per phase, events shown as free/private, tagged events, no data collection. Also note that one calendar per phase (which would allow custom hex colors) was considered and rejected in favor of a single easy toggle, with emoji prefixes used for distinction instead.
+  - **Design decisions:** luteal-anchored math, median cycle length with outliers judged against the user's own history (and why fixed population ranges were rejected), private calendar, one event per phase, events shown as free/private, tagged events, no data collection. Also note that one calendar per phase (which would allow custom hex colors) was considered and rejected in favor of a single easy toggle, with emoji prefixes used for distinction instead.
   - Honest privacy statement: nothing leaves your Google account and the author sees nothing, but the events do live in Google Calendar under Google's terms
   - Health disclaimer
 - `LICENSE` (MIT)
