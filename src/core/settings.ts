@@ -26,12 +26,42 @@ export const DEFAULT_SETTINGS: Settings = {
 type NumberKey =
   'defaultCycleLength' | 'periodLength' | 'lutealLength' | 'cyclesToAverage' | 'monthsAhead';
 
-const NUMBER_FIELDS: { key: NumberKey; label: string; min: number; max: number }[] = [
-  { key: 'defaultCycleLength', label: 'Default cycle length (days)', min: 21, max: 45 },
-  { key: 'periodLength', label: 'Period length (days)', min: 1, max: 10 },
-  { key: 'lutealLength', label: 'Luteal length (days)', min: 10, max: 16 },
-  { key: 'cyclesToAverage', label: 'Cycles to average', min: 1, max: 24 },
-  { key: 'monthsAhead', label: 'Months ahead', min: 1, max: 12 },
+const NUMBER_FIELDS: { key: NumberKey; label: string; min: number; max: number; note: string }[] = [
+  {
+    key: 'defaultCycleLength',
+    label: 'Default cycle length (days)',
+    min: 21,
+    max: 45,
+    note: 'Used until you have logged at least 2 period start dates.',
+  },
+  {
+    key: 'periodLength',
+    label: 'Period length (days)',
+    min: 1,
+    max: 10,
+    note: 'Length of the menstrual phase.',
+  },
+  {
+    key: 'lutealLength',
+    label: 'Luteal length (days)',
+    min: 10,
+    max: 16,
+    note: 'Days from ovulation to the next period. Used to estimate ovulation.',
+  },
+  {
+    key: 'cyclesToAverage',
+    label: 'Cycles to average',
+    min: 1,
+    max: 24,
+    note: 'How many of your most recent cycles the average uses.',
+  },
+  {
+    key: 'monthsAhead',
+    label: 'Months ahead',
+    min: 1,
+    max: 12,
+    note: 'How far ahead to show predictions.',
+  },
 ];
 
 const CALENDAR_NAME_LABEL = 'Calendar name';
@@ -43,12 +73,37 @@ function capitalize(s: string): string {
 const titleLabel = (phase: PhaseName) => `${capitalize(phase)} title`;
 const colorLabel = (phase: PhaseName) => `${capitalize(phase)} color`;
 
+export interface SettingRow {
+  label: string;
+  defaultValue: string | number;
+  note: string;
+  /** Color rows get a dropdown of Google's preset event colors. */
+  isColor?: boolean;
+}
+
 /** Rows of the Settings tab, in display order, for the sheet adapter to create. */
-export const SETTING_ROWS: { label: string; defaultValue: string | number }[] = [
-  ...NUMBER_FIELDS.map((f) => ({ label: f.label, defaultValue: DEFAULT_SETTINGS[f.key] })),
-  { label: CALENDAR_NAME_LABEL, defaultValue: DEFAULT_SETTINGS.calendarName },
-  ...PHASES.map((p) => ({ label: titleLabel(p), defaultValue: DEFAULT_SETTINGS.titles[p] })),
-  ...PHASES.map((p) => ({ label: colorLabel(p), defaultValue: DEFAULT_SETTINGS.colors[p] })),
+export const SETTING_ROWS: SettingRow[] = [
+  ...NUMBER_FIELDS.map((f) => ({
+    label: f.label,
+    defaultValue: DEFAULT_SETTINGS[f.key],
+    note: `${f.note} Whole number, ${f.min}–${f.max}.`,
+  })),
+  {
+    label: CALENDAR_NAME_LABEL,
+    defaultValue: DEFAULT_SETTINGS.calendarName,
+    note: 'Name of the dedicated calendar the script creates. Never your main calendar.',
+  },
+  ...PHASES.map((p) => ({
+    label: titleLabel(p),
+    defaultValue: DEFAULT_SETTINGS.titles[p],
+    note: 'Event title. Predicted cycles get " (predicted)" added.',
+  })),
+  ...PHASES.map((p) => ({
+    label: colorLabel(p),
+    defaultValue: DEFAULT_SETTINGS.colors[p],
+    note: 'One of Google Calendar’s preset event colors.',
+    isColor: true,
+  })),
 ];
 
 function parseInteger(value: unknown): number | null {

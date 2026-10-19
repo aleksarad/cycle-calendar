@@ -3,17 +3,21 @@
 // menu, from triggers, and from the editor's function dropdown.
 
 import { addMenu, toast } from './gas/menu';
+import { ensureTabs, spreadsheet } from './gas/sheet';
+import { runSync } from './sync';
 
 export function onOpen(): void {
   addMenu();
 }
 
 export function setup(): void {
-  toast('Set up is not implemented yet.');
+  ensureTabs(spreadsheet());
+  toast('Tabs are ready. Calendar and triggers come in a later phase.');
 }
 
 export function syncNow(): void {
-  toast('Sync is not implemented yet.');
+  runSync();
+  toast('Synced. See the Status tab.');
 }
 
 export function onLogEdit(_e: GoogleAppsScript.Events.SheetsOnEdit): void {
