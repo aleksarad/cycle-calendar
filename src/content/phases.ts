@@ -2,7 +2,7 @@
 // functions below only assemble it. Keep the framing general ("commonly
 // reported", "estimated"): this is information, not medical advice.
 
-import type { PhaseName, PhaseSpan } from '../core/types';
+import type { CycleStats, PhaseName, PhaseSpan } from '../core/types';
 
 interface PhaseContent {
   /** What's generally happening hormonally, in one or two sentences. */
@@ -66,8 +66,14 @@ function basis(basedOn: number, cycleLength: number): string {
   return `Estimated from your last ${basedOn} cycle${basedOn === 1 ? '' : 's'}.`;
 }
 
+/** Only on predicted cycles: the current one is anchored on a real logged date. */
+function irregularNote(span: PhaseSpan, stats: CycleStats): string | null {
+  if (!span.predicted || !stats.irregular) return null;
+  return `Your recent cycles ranged from ${stats.shortest} to ${stats.longest} days, so these dates could shift.`;
+}
+
 /** The full event description for one phase span. */
-export function describePhase(span: PhaseSpan, basedOn: number): string {
+export function describePhase(span: PhaseSpan, stats: CycleStats): string {
   const content = PHASE_CONTENT[span.phase];
   return [
     `${dayRange(span)} of an estimated ${span.cycleLength}-day cycle.`,
@@ -76,7 +82,10 @@ export function describePhase(span: PhaseSpan, basedOn: number): string {
       'Commonly reported (everyone is different):',
       ...content.experiences.map((e) => `• ${e}`),
     ].join('\n'),
-    basis(basedOn, span.cycleLength),
+    basis(stats.basedOn, span.cycleLength),
+    irregularNote(span, stats),
     DISCLAIMER,
-  ].join('\n\n');
+  ]
+    .filter((part) => part !== null)
+    .join('\n\n');
 }

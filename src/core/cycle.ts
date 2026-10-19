@@ -11,9 +11,61 @@ import type {
   Settings,
 } from './types';
 
-/** Intervals outside this range are likely a missed or extra log, so they're left out of the average. */
-export const MIN_INTERVAL = 21;
-export const MAX_INTERVAL = 45;
+// Cycle length rules (spec §4.1). Outliers are judged against the user's own
+// recent history, so a consistently long cycle is predicted, not discarded.
+
+/** No single cycle is shorter or longer than this; such intervals are always excluded. */
+export const PLAUSIBLE_MIN = 15;
+export const PLAUSIBLE_MAX = 90;
+/** With 3+ recent intervals, keep those within these multiples of their median. */
+export const PERSONAL_LOW = 0.75;
+export const PERSONAL_HIGH = 1.6;
+export const MIN_FOR_PERSONAL = 3;
+/** With fewer, there's too little history to judge, so fixed bounds apply. */
+export const FALLBACK_MIN = 21;
+export const FALLBACK_MAX = 45;
+/** A spread between shortest and longest above this many days counts as irregular. */
+export const IRREGULAR_RANGE = 7;
+
+function median(values: number[]): number {
+  const sorted = [...values].sort((a, b) => a - b);
+  const mid = Math.floor(sorted.length / 2);
+  return sorted.length % 2 ? sorted[mid]! : (sorted[mid - 1]! + sorted[mid]!) / 2;
+}
+
+const LEFT_OUT = "so it's left out of the estimate";
+
+function plausibilityReason(days: number): string | undefined {
+  if (days < PLAUSIBLE_MIN) {
+    return `${days} days is too short to be a full cycle, possibly an extra or mistyped date`;
+  }
+  if (days > PLAUSIBLE_MAX) {
+    return `${days} days is too long to be a single cycle, possibly missed logs`;
+  }
+  return undefined;
+}
+
+/** Returns a reason to exclude `days` given the recent window, or undefined to keep it. */
+function outlierRule(window: number[]): (days: number) => string | undefined {
+  if (window.length >= MIN_FOR_PERSONAL) {
+    const m = median(window);
+    const low = Math.round(PERSONAL_LOW * m);
+    const high = Math.round(PERSONAL_HIGH * m);
+    const usual = `usual for you (typically ${Math.round(m)})`;
+    return (days) =>
+      days > high
+        ? `${days} days is longer than ${usual}, possibly a missed log, ${LEFT_OUT}`
+        : days < low
+          ? `${days} days is shorter than ${usual}, possibly an extra or mistyped date, ${LEFT_OUT}`
+          : undefined;
+  }
+  return (days) =>
+    days > FALLBACK_MAX
+      ? `${days} days is longer than ${FALLBACK_MAX}, possibly a missed log, ${LEFT_OUT}`
+      : days < FALLBACK_MIN
+        ? `${days} days is shorter than ${FALLBACK_MIN}, possibly an extra or mistyped date, ${LEFT_OUT}`
+        : undefined;
+}
 
 export function computeStats(starts: ISODate[], settings: Settings): CycleStats {
   const unique = [...new Set(starts)].sort(compareDates);
@@ -23,25 +75,39 @@ export function computeStats(starts: ISODate[], settings: Settings): CycleStats 
     const from = unique[i - 1]!;
     const to = unique[i]!;
     const days = diffDays(from, to);
-    const interval: Interval = { from, to, days };
-    if (days < MIN_INTERVAL) {
-      interval.excludedReason = `${days} days is shorter than ${MIN_INTERVAL} (possibly an extra or mistyped date)`;
-    } else if (days > MAX_INTERVAL) {
-      interval.excludedReason = `${days} days is longer than ${MAX_INTERVAL} (possibly a missed log)`;
-    }
-    intervals.push(interval);
+    const excludedReason = plausibilityReason(days);
+    intervals.push(excludedReason ? { from, to, days, excludedReason } : { from, to, days });
   }
 
-  const used = intervals
+  // Judge the most recent plausible intervals, at least 3 so a low "Cycles to
+  // average" still has enough history. Older intervals are neither judged nor used.
+  const window = intervals
+    .filter((i) => !i.excludedReason)
+    .slice(-Math.max(settings.cyclesToAverage, MIN_FOR_PERSONAL));
+  const exclude = outlierRule(window.map((i) => i.days));
+  for (const interval of window) {
+    const reason = exclude(interval.days);
+    if (reason) interval.excludedReason = reason;
+  }
+
+  const used = window
     .filter((i) => !i.excludedReason)
     .slice(-settings.cyclesToAverage)
     .map((i) => i.days);
 
-  const averageLength = used.length
-    ? Math.round(used.reduce((sum, n) => sum + n, 0) / used.length)
-    : settings.defaultCycleLength;
-
-  return { starts: unique, intervals, averageLength, basedOn: used.length };
+  const stats: CycleStats = {
+    starts: unique,
+    intervals,
+    typicalLength: used.length ? Math.round(median(used)) : settings.defaultCycleLength,
+    basedOn: used.length,
+    irregular: false,
+  };
+  if (used.length >= 2) {
+    stats.shortest = Math.min(...used);
+    stats.longest = Math.max(...used);
+    stats.irregular = stats.longest - stats.shortest > IRREGULAR_RANGE;
+  }
+  return stats;
 }
 
 /**
@@ -115,7 +181,7 @@ export function buildSchedule(starts: ISODate[], settings: Settings, today: ISOD
     return { stats, spans: [], today: null, nextPredictedStart: null, lateByDays: 0, warnings };
   }
 
-  const length = stats.averageLength;
+  const length = stats.typicalLength;
   const { phases, warning } = phaseBoundaries(length, settings.periodLength, settings.lutealLength);
   if (warning) warnings.push(warning);
 

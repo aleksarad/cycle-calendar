@@ -48,8 +48,13 @@ export interface CycleStats {
   /** Unique logged starts, ascending. */
   starts: ISODate[];
   intervals: Interval[];
-  /** Cycle length used for predictions, in days. */
-  averageLength: number;
-  /** How many intervals the average is based on; 0 means the default was used. */
+  /** Cycle length used for predictions: the median of recent intervals, in days. */
+  typicalLength: number;
+  /** How many intervals the typical length is based on; 0 means the default was used. */
   basedOn: number;
+  /** Shortest and longest interval used; present when 2 or more were used. */
+  shortest?: number;
+  longest?: number;
+  /** True when `longest − shortest` exceeds IRREGULAR_RANGE days. */
+  irregular: boolean;
 }

@@ -28,7 +28,8 @@ describe('buildStatusRows', () => {
       ['Last sync', '2026-10-18 14:02: Success (32 events)'],
       ['Today', '2026-10-18: day 20 of 28, 🌘 Luteal (estimated)'],
       ['Next predicted period', '2026-10-27 (in 9 days)'],
-      ['Average cycle length', '28 days, from your last 1 cycle'],
+      ['Typical cycle length', '28 days, from your last cycle'],
+      ['Cycle range', 'Not enough cycles yet (needs 3 logged period starts)'],
       ['Excluded intervals', 'None'],
       ['Warnings', 'None'],
     ]);
@@ -43,13 +44,41 @@ describe('buildStatusRows', () => {
       input({ schedule: scheduleFrom('2026-06-01', '2026-06-15', '2026-07-13', '2026-09-29') }),
     );
     const start = rows.findIndex(([l]) => l === 'Excluded intervals');
-    expect(rows[start]![1]).toMatch(/^2026-06-01 → 2026-06-15: 14 days is shorter/);
+    expect(rows[start]![1]).toMatch(/^2026-06-01 → 2026-06-15: 14 days is too short/);
     expect(rows[start + 1]).toEqual(['', expect.stringMatching(/^2026-07-13 → 2026-09-29: 78/)]);
   });
 
   it('marks the default cycle length when there is too little data', () => {
     expect(byLabel(buildStatusRows(input({ schedule: scheduleFrom('2026-10-10') })))).toMatchObject(
-      { 'Average cycle length': expect.stringContaining('the default') },
+      { 'Typical cycle length': expect.stringContaining('the default') },
+    );
+  });
+
+  it('describes the typical length as a median when based on several cycles', () => {
+    const rows = buildStatusRows(
+      input({ schedule: scheduleFrom('2026-07-07', '2026-08-04', '2026-09-02', '2026-09-29') }),
+    );
+    expect(byLabel(rows)).toMatchObject({
+      'Typical cycle length': '28 days, the median of your last 3 cycles',
+      'Cycle range': '27–29 days',
+    });
+  });
+
+  it('flags irregular cycles in the cycle range', () => {
+    // Gaps of 24, 38, 26, 36 days.
+    const rows = buildStatusRows(
+      input({
+        schedule: scheduleFrom(
+          '2026-05-10',
+          '2026-06-03',
+          '2026-07-11',
+          '2026-08-06',
+          '2026-09-11',
+        ),
+      }),
+    );
+    expect(byLabel(rows)['Cycle range']).toBe(
+      '24–38 days. Your cycles vary by more than 7 days, so predicted dates are less certain.',
     );
   });
 

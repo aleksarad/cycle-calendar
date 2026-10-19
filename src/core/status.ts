@@ -1,8 +1,8 @@
 // Rows for the Status tab: a two-column label/value table the adapter writes as-is.
 
-import type { Schedule } from './cycle';
+import { IRREGULAR_RANGE, type Schedule } from './cycle';
 import { diffDays } from './dates';
-import type { ISODate, Settings } from './types';
+import type { CycleStats, ISODate, Settings } from './types';
 
 export type SyncResult = { ok: true; eventsCreated?: number } | { ok: false; error: string };
 
@@ -34,6 +34,24 @@ function syncLine({ syncedAt, result }: StatusInput): string {
   return `${syncedAt}: Success${created}`;
 }
 
+function typicalLine({ typicalLength, basedOn }: CycleStats): string {
+  if (basedOn === 0) {
+    return `${typicalLength} days (the default; log at least 2 period starts to personalize)`;
+  }
+  if (basedOn === 1) return `${typicalLength} days, from your last cycle`;
+  return `${typicalLength} days, the median of your last ${basedOn} cycles`;
+}
+
+function rangeLine({ shortest, longest, irregular }: CycleStats): string {
+  if (shortest === undefined || longest === undefined) {
+    return 'Not enough cycles yet (needs 3 logged period starts)';
+  }
+  const range = `${shortest}–${longest} days`;
+  return irregular
+    ? `${range}. Your cycles vary by more than ${IRREGULAR_RANGE} days, so predicted dates are less certain.`
+    : range;
+}
+
 export function buildStatusRows(input: StatusInput): string[][] {
   const { schedule, settings, today } = input;
   const rows: string[][] = [
@@ -57,12 +75,8 @@ export function buildStatusRows(input: StatusInput): string[][] {
           ? `${nextPredictedStart} (in ${plural(diffDays(today, nextPredictedStart), 'day')})`
           : 'No prediction yet',
       ],
-      [
-        'Average cycle length',
-        stats.basedOn
-          ? `${stats.averageLength} days, from your last ${plural(stats.basedOn, 'cycle')}`
-          : `${stats.averageLength} days (the default; log at least 2 period starts to personalize)`,
-      ],
+      ['Typical cycle length', typicalLine(stats)],
+      ['Cycle range', rangeLine(stats)],
       ...list(
         'Excluded intervals',
         stats.intervals

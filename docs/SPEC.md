@@ -68,10 +68,10 @@ Outliers are judged against the user's own history rather than fixed population 
 
 1. Sort unique start dates ascending; compute intervals between consecutive dates.
 2. **Plausibility bounds (always applied):** exclude intervals under **15** or over **90** days. Neither can be a single cycle; they come from an extra or mistyped date, or from several missed logs.
-3. **Personal outliers:** take the median `m` of the most recent N (cycles to average) plausible intervals.
-   - With **3 or more** of them, exclude any interval outside **0.75·m – 1.6·m** (rounded to whole days). Over 1.6·m usually means a missed log (two cycles counted as one). Under 0.75·m usually means an extra or mistyped date. For `m = 28` this gives 21–44, close to the old fixed range.
+3. **Personal outliers:** the _window_ is the most recent **max(N, 3)** plausible intervals, where N is "Cycles to average". The minimum of 3 means a low N still has enough history to judge. Only intervals in the window are judged; older ones are neither excluded nor used, so a lasting change in cycle length (e.g. 28 → 40 days) doesn't flag the older, genuine cycles. Take the window's median `m`.
+   - With **3 or more** intervals in the window, exclude any of them outside **0.75·m – 1.6·m** (bounds rounded to whole days, inclusive). Over 1.6·m usually means a missed log (two cycles counted as one). Under 0.75·m usually means an extra or mistyped date. For `m = 28` this gives 21–44, close to the old fixed range.
    - With **fewer than 3**, there's too little history to judge, so fall back to the fixed **21–45** range.
-4. **Typical length = median** of the most recent N intervals that remain, rounded to the nearest whole day (for an even count, the mean of the two middle values, with .5 rounding up). The median keeps one unusual cycle from dragging every prediction.
+4. **Typical length = median** of the most recent N window intervals that remain, rounded to the nearest whole day (for an even count, the mean of the two middle values, with .5 rounding up). The median keeps one unusual cycle from dragging every prediction.
 5. With no intervals left, use the default cycle length.
 6. **Variability:** with 2 or more intervals used, report the shortest and longest. If `longest − shortest` is **more than 7 days**, the cycles count as **irregular**. Status says so, and predicted events say that dates could shift (see §5).
 

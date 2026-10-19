@@ -23,68 +23,187 @@ const settings = (overrides: Partial<Settings> = {}): Settings => ({
 const days = (phases: PhaseDays[]) => phases.map((p) => [p.phase, p.startDay, p.endDay]);
 
 describe('computeStats', () => {
-  it('averages the most recent N intervals of a regular log', () => {
-    const starts = startsWithGaps('2026-01-01', [35, 35, 28, 28, 28, 28, 28, 28]);
-    const stats = computeStats(starts, settings({ cyclesToAverage: 6 }));
-    expect(stats.averageLength).toBe(28);
-    expect(stats.basedOn).toBe(6);
+  /** Stats for gaps starting 2026-01-01, with optional settings overrides. */
+  const statsFor = (gaps: number[], overrides: Partial<Settings> = {}) =>
+    computeStats(startsWithGaps('2026-01-01', gaps), settings(overrides));
+  const excludedDays = (gaps: number[], overrides: Partial<Settings> = {}) =>
+    statsFor(gaps, overrides)
+      .intervals.filter((i) => i.excludedReason)
+      .map((i) => i.days);
+
+  describe('typical length', () => {
+    it('uses the most recent N intervals of a regular log', () => {
+      const stats = statsFor([35, 35, 28, 28, 28, 28, 28, 28], { cyclesToAverage: 6 });
+      expect(stats.typicalLength).toBe(28);
+      expect(stats.basedOn).toBe(6);
+    });
+
+    it('uses all intervals when there are fewer than N', () => {
+      expect(statsFor([29, 31, 30])).toMatchObject({ typicalLength: 30, basedOn: 3 });
+    });
+
+    it('works from exactly two starts', () => {
+      expect(statsFor([30])).toMatchObject({ typicalLength: 30, basedOn: 1 });
+    });
+
+    it('is the median, so one long cycle among regular ones does not move it', () => {
+      // The mean would be 30.4 → 30.
+      expect(statsFor([28, 28, 40, 28, 28])).toMatchObject({ typicalLength: 28, basedOn: 5 });
+    });
+
+    it('takes the mean of the two middle values for an even count, rounding .5 up', () => {
+      expect(statsFor([28, 29]).typicalLength).toBe(29);
+      expect(statsFor([27, 28, 30, 31]).typicalLength).toBe(29);
+      expect(statsFor([28, 28, 29]).typicalLength).toBe(28);
+    });
+
+    it.each([[[]], [['2026-01-01']]])('falls back to the default cycle length with %j', (s) => {
+      const stats = computeStats(dates(...s), settings({ defaultCycleLength: 32 }));
+      expect(stats).toMatchObject({ typicalLength: 32, basedOn: 0 });
+    });
+
+    it('falls back to the default when every interval is excluded', () => {
+      expect(statsFor([10, 120])).toMatchObject({ typicalLength: 28, basedOn: 0 });
+    });
+
+    it('handles unsorted and duplicate dates', () => {
+      const messy = dates('2026-03-26', '2026-01-01', '2026-02-26', '2026-01-29', '2026-02-26');
+      const stats = computeStats(messy, settings());
+      expect(stats.starts).toEqual(dates('2026-01-01', '2026-01-29', '2026-02-26', '2026-03-26'));
+      expect(stats).toMatchObject({ typicalLength: 28, basedOn: 3 });
+    });
   });
 
-  it('uses all intervals when there are fewer than N', () => {
-    const stats = computeStats(startsWithGaps('2026-01-01', [29, 31, 30]), settings());
-    expect(stats.averageLength).toBe(30);
-    expect(stats.basedOn).toBe(3);
+  describe('plausibility bounds (always applied)', () => {
+    it('excludes intervals under 15 or over 90 days, keeping 15 and 90', () => {
+      expect(excludedDays([14, 28, 28, 28, 91])).toEqual([14, 91]);
+      expect(excludedDays([15])).toEqual([15]); // plausible, but outside the 21–45 fallback
+      expect(statsFor([90, 90, 90])).toMatchObject({ typicalLength: 90, basedOn: 3 });
+    });
+
+    it('says why, without implying a real cycle is wrong', () => {
+      const [short, long] = statsFor([10, 28, 28, 28, 120]).intervals.filter(
+        (i) => i.excludedReason,
+      );
+      expect(short!.excludedReason).toBe(
+        '10 days is too short to be a full cycle, possibly an extra or mistyped date',
+      );
+      expect(long!.excludedReason).toBe(
+        '120 days is too long to be a single cycle, possibly missed logs',
+      );
+    });
   });
 
-  it('works from exactly two starts', () => {
-    const stats = computeStats(dates('2026-01-01', '2026-01-31'), settings());
-    expect(stats.averageLength).toBe(30);
-    expect(stats.basedOn).toBe(1);
+  describe('personal outliers (3+ plausible intervals)', () => {
+    it('excludes a missed log (about double the median)', () => {
+      const stats = statsFor([28, 28, 56, 28]);
+      expect(excludedDays([28, 28, 56, 28])).toEqual([56]);
+      expect(stats.intervals.find((i) => i.days === 56)!.excludedReason).toBe(
+        "56 days is longer than usual for you (typically 28), possibly a missed log, so it's left out of the estimate",
+      );
+      expect(stats).toMatchObject({ typicalLength: 28, basedOn: 3 });
+    });
+
+    it('excludes an extra log (well under the median)', () => {
+      const stats = statsFor([28, 28, 18, 28]);
+      expect(excludedDays([28, 28, 18, 28])).toEqual([18]);
+      expect(stats.intervals.find((i) => i.days === 18)!.excludedReason).toBe(
+        "18 days is shorter than usual for you (typically 28), possibly an extra or mistyped date, so it's left out of the estimate",
+      );
+    });
+
+    it('bounds are 0.75·m to 1.6·m, inclusive: 21–45 for a median of 28', () => {
+      // m = 28 → round(21) = 21, round(44.8) = 45.
+      expect(excludedDays([28, 28, 28, 21, 45])).toEqual([]);
+      expect(excludedDays([28, 28, 28, 20, 46])).toEqual([20, 46]);
+    });
+
+    it('keeps consistently long cycles instead of discarding them', () => {
+      const stats = statsFor([50, 52, 49, 51]);
+      expect(excludedDays([50, 52, 49, 51])).toEqual([]);
+      expect(stats).toMatchObject({ typicalLength: 51, basedOn: 4 });
+    });
+
+    it('judges against the recent window, so a lasting change is accepted', () => {
+      // Cycles lengthened from 28 to 40; the last 6 set the median, so the 40s count.
+      const gaps = [28, 28, 28, 28, 40, 40, 40, 40, 40, 40];
+      expect(statsFor(gaps).typicalLength).toBe(40);
+      expect(excludedDays(gaps)).toEqual([]);
+    });
   });
 
-  it('rounds the average to the nearest whole day', () => {
-    expect(computeStats(startsWithGaps('2026-01-01', [28, 29]), settings()).averageLength).toBe(29);
-    expect(computeStats(startsWithGaps('2026-01-01', [28, 28, 29]), settings()).averageLength).toBe(
-      28,
-    );
+  describe('fallback range (fewer than 3 plausible intervals)', () => {
+    it('excludes outside 21–45 with neutral wording', () => {
+      const stats = statsFor([18, 50]);
+      expect(excludedDays([18, 50])).toEqual([18, 50]);
+      const [short, long] = stats.intervals;
+      expect(short!.excludedReason).toBe(
+        "18 days is shorter than 21, possibly an extra or mistyped date, so it's left out of the estimate",
+      );
+      expect(long!.excludedReason).toBe(
+        "50 days is longer than 45, possibly a missed log, so it's left out of the estimate",
+      );
+      expect(stats).toMatchObject({ typicalLength: 28, basedOn: 0 });
+    });
+
+    it('keeps intervals of exactly 21 and 45 days', () => {
+      expect(statsFor([21, 45])).toMatchObject({ typicalLength: 33, basedOn: 2 });
+    });
+
+    it('counts only plausible intervals toward the 3 needed', () => {
+      // 10 is implausible, leaving two 50s: too few to judge, so 21–45 applies.
+      expect(excludedDays([10, 50, 50])).toEqual([10, 50, 50]);
+      // Three plausible 50s are enough to judge personally, so they're kept.
+      expect(excludedDays([10, 50, 50, 50])).toEqual([10]);
+    });
+
+    it('judges against at least 3 recent intervals even when Cycles to average is lower', () => {
+      const stats = statsFor([50, 50, 50], { cyclesToAverage: 2 });
+      expect(excludedDays([50, 50, 50], { cyclesToAverage: 2 })).toEqual([]);
+      expect(stats).toMatchObject({ typicalLength: 50, basedOn: 2 });
+    });
+
+    it('leaves intervals older than the window unjudged and unused', () => {
+      // Window is the last 3 (28s); the old 60 is neither excluded nor counted.
+      const stats = statsFor([60, 28, 28, 28], { cyclesToAverage: 3 });
+      expect(excludedDays([60, 28, 28, 28], { cyclesToAverage: 3 })).toEqual([]);
+      expect(stats).toMatchObject({ typicalLength: 28, basedOn: 3 });
+    });
   });
 
-  it.each([[[]], [['2026-01-01']]])('falls back to the default cycle length with %j', (s) => {
-    const stats = computeStats(dates(...s), settings({ defaultCycleLength: 32 }));
-    expect(stats.averageLength).toBe(32);
-    expect(stats.basedOn).toBe(0);
-  });
+  describe('variability', () => {
+    it('reports the shortest and longest cycle used', () => {
+      expect(statsFor([27, 30, 29])).toMatchObject({ shortest: 27, longest: 30, irregular: false });
+    });
 
-  it('excludes outlier intervals and says why', () => {
-    const starts = startsWithGaps('2026-01-01', [14, 28, 60, 28]);
-    const stats = computeStats(starts, settings());
-    expect(stats.averageLength).toBe(28);
-    expect(stats.basedOn).toBe(2);
+    it('flags a range over 7 days as irregular', () => {
+      expect(statsFor([24, 38, 26, 36])).toMatchObject({
+        typicalLength: 31,
+        shortest: 24,
+        longest: 38,
+        irregular: true,
+      });
+      expect(statsFor([28, 36, 28]).irregular).toBe(true);
+    });
 
-    const excluded = stats.intervals.filter((i) => i.excludedReason);
-    expect(excluded.map((i) => i.days)).toEqual([14, 60]);
-    expect(excluded[0]!.excludedReason).toMatch(/shorter than 21/);
-    expect(excluded[1]!.excludedReason).toMatch(/longer than 45/);
-  });
+    it('does not flag a range of exactly 7 days', () => {
+      expect(statsFor([28, 35, 28]).irregular).toBe(false);
+    });
 
-  it('keeps intervals of exactly 21 and 45 days', () => {
-    const stats = computeStats(startsWithGaps('2026-01-01', [21, 45]), settings());
-    expect(stats.basedOn).toBe(2);
-    expect(stats.averageLength).toBe(33);
-  });
+    it('ignores excluded intervals', () => {
+      expect(statsFor([28, 28, 56, 29])).toMatchObject({
+        shortest: 28,
+        longest: 29,
+        irregular: false,
+      });
+    });
 
-  it('falls back to the default when every interval is an outlier', () => {
-    const stats = computeStats(startsWithGaps('2026-01-01', [10, 90]), settings());
-    expect(stats.averageLength).toBe(28);
-    expect(stats.basedOn).toBe(0);
-  });
-
-  it('handles unsorted and duplicate dates', () => {
-    const messy = dates('2026-03-26', '2026-01-01', '2026-02-26', '2026-01-29', '2026-02-26');
-    const stats = computeStats(messy, settings());
-    expect(stats.starts).toEqual(dates('2026-01-01', '2026-01-29', '2026-02-26', '2026-03-26'));
-    expect(stats.averageLength).toBe(28);
-    expect(stats.basedOn).toBe(3);
+    it('needs at least 2 intervals to report a range', () => {
+      const stats = statsFor([30]);
+      expect(stats.shortest).toBeUndefined();
+      expect(stats.longest).toBeUndefined();
+      expect(stats.irregular).toBe(false);
+    });
   });
 });
 
