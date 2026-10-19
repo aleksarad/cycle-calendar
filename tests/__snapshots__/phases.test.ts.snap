@@ -1,0 +1,63 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`describePhase > renders the follicular description 1`] = `
+"Days 6–12 of an estimated 28-day cycle.
+
+Estrogen rises as follicles in the ovaries develop, and the uterine lining begins to rebuild.
+
+Commonly reported (everyone is different):
+• Energy and motivation building
+• A brighter, more social mood
+• Feeling focused and open to new things
+
+Estimated from your last 6 cycles.
+
+General information, not medical advice. Not for contraception."
+`;
+
+exports[`describePhase > renders the luteal description 1`] = `
+"Days 16–28 of an estimated 28-day cycle.
+
+Progesterone rises after ovulation. If pregnancy does not occur, progesterone and estrogen fall toward the end of this phase, leading into the next period.
+
+Commonly reported (everyone is different):
+• Steady energy early on, tapering later
+• In the final days, PMS for some: bloating, irritability or low mood
+• Food cravings
+• Lighter or more restless sleep
+
+Estimated from your last 6 cycles.
+
+General information, not medical advice. Not for contraception."
+`;
+
+exports[`describePhase > renders the menstrual description 1`] = `
+"Days 1–5 of an estimated 28-day cycle.
+
+Estrogen and progesterone are at their lowest, and the uterine lining is shed as a period.
+
+Commonly reported (everyone is different):
+• Lower energy, especially in the first few days
+• Cramps or lower back ache
+• Wanting more rest and quieter time
+• Mood often lifting as the period eases
+
+Estimated from your last 6 cycles.
+
+General information, not medical advice. Not for contraception."
+`;
+
+exports[`describePhase > renders the ovulatory description 1`] = `
+"Days 13–15 of an estimated 28-day cycle.
+
+Estrogen peaks and a surge of luteinizing hormone (LH) triggers the release of an egg. These dates are an estimate: actual ovulation can shift by several days from cycle to cycle, and this calendar cannot detect it.
+
+Commonly reported (everyone is different):
+• Peak energy for many people
+• Feeling confident and sociable
+• Higher libido
+
+Estimated from your last 6 cycles.
+
+General information, not medical advice. Not for contraception."
+`;
