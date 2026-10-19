@@ -46,7 +46,7 @@ function rangeLine({ shortest, longest, irregular }: CycleStats): string {
   if (shortest === undefined || longest === undefined) {
     return 'Not enough cycles yet (needs 3 logged period starts)';
   }
-  const range = `${shortest}–${longest} days`;
+  const range = shortest === longest ? `${shortest} days` : `${shortest}–${longest} days`;
   return irregular
     ? `${range}. Your cycles vary by more than ${IRREGULAR_RANGE} days, so predicted dates are less certain.`
     : range;

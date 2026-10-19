@@ -64,6 +64,13 @@ describe('buildStatusRows', () => {
     });
   });
 
+  it('shows a single length when every cycle used was the same', () => {
+    const rows = buildStatusRows(
+      input({ schedule: scheduleFrom('2026-08-04', '2026-09-01', '2026-09-29') }),
+    );
+    expect(byLabel(rows)['Cycle range']).toBe('28 days');
+  });
+
   it('flags irregular cycles in the cycle range', () => {
     // Gaps of 24, 38, 26, 36 days.
     const rows = buildStatusRows(
