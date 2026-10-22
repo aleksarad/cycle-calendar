@@ -1,6 +1,7 @@
-// Read the sheet → compute the schedule → (calendar, next phase) → write Status.
+// Read the sheet → compute the schedule → rebuild calendar events → write Status.
 
 import { buildSchedule, type Schedule } from './core/cycle';
+import { buildEvents } from './core/events';
 import { parseLogValues } from './core/log';
 import { DEFAULT_SETTINGS, parseSettings } from './core/settings';
 import { buildStatusRows, type SyncResult } from './core/status';
@@ -14,6 +15,7 @@ import {
   spreadsheet,
   writeStatus,
 } from './gas/sheet';
+import { deleteTaggedEvents, getOrCreateCalendar, insertEvents } from './gas/calendar';
 
 /** Runs a full sync and records the outcome on the Status tab. Rethrows on failure. */
 export function runSync(): SyncResult {
@@ -31,7 +33,12 @@ export function runSync(): SyncResult {
     settings = parsedSettings.settings;
     inputWarnings = [...parsedSettings.warnings, ...log.warnings];
     schedule = buildSchedule(log.dates, settings, today);
-    result = { ok: true };
+
+    // Wipe and rebuild: stale predictions can never survive a sync (spec §5).
+    const calendarId = getOrCreateCalendar(settings.calendarName);
+    deleteTaggedEvents(calendarId);
+    const eventsCreated = insertEvents(calendarId, buildEvents(schedule, settings));
+    result = { ok: true, eventsCreated };
   } catch (err) {
     result = { ok: false, error: err instanceof Error ? err.message : String(err) };
   }

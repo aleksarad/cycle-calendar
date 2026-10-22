@@ -12,12 +12,12 @@ export function onOpen(): void {
 
 export function setup(): void {
   ensureTabs(spreadsheet());
-  toast('Tabs are ready. Calendar and triggers come in a later phase.');
+  syncNow();
 }
 
 export function syncNow(): void {
-  runSync();
-  toast('Synced. See the Status tab.');
+  const result = runSync();
+  toast(`Synced ${result.ok ? (result.eventsCreated ?? 0) : 0} events. See the Status tab.`);
 }
 
 export function onLogEdit(_e: GoogleAppsScript.Events.SheetsOnEdit): void {
