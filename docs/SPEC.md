@@ -217,12 +217,12 @@ appsscript.json
 ## 10. Repo deliverables
 
 - `README.md`:
-  - Overview with a screenshot/GIF placeholder
-  - Setup for non-technical users (template copy) and developers (clasp)
+  - Overview with screenshots
+  - How to use, for non-technical users (template copy, time zone, Set up, logging), and development setup (clasp)
   - How the predictions work
-  - **Design decisions:** luteal-anchored math, median cycle length with outliers judged against the user's own history (and why fixed population ranges were rejected), private calendar, one event per phase, events shown as free/private, tagged events, no data collection. Also note that one calendar per phase (which would allow custom hex colors) was considered and rejected in favor of a single easy toggle, with emoji prefixes used for distinction instead.
   - Honest privacy statement: nothing leaves your Google account and the author sees nothing, but the events do live in Google Calendar under Google's terms
   - Health disclaimer
+  - No design decisions section. Those live in §14 of this spec.
 - `LICENSE` (MIT)
 - npm scripts: `build`, `test`, `lint`, `push` (build + clasp push)
 - Commit history that reflects incremental work
@@ -258,3 +258,18 @@ Possible later: rendering past cycles, a symptom notes column that stays in the 
 - Manually created events on that calendar are never touched.
 - **Remove** cleans up triggers and all script-created events.
 - All core tests pass; no `UrlFetchApp` anywhere in the codebase.
+
+---
+
+## 14. Design decisions
+
+Why the main choices were made, kept here rather than in the README.
+
+- **Ovulation anchored on the luteal phase.** Day 14 is only right for a 28-day cycle. Counting back from the next period works for any cycle length.
+- **Median cycle length, outliers judged against the user's own history.** Fixed population ranges (such as 21–35 days) would discard every cycle for someone whose normal cycle is 50 days. Judging outliers relative to the user's own recent median keeps long and short cycles that are normal _for the user_, while still catching missed or mistyped logs.
+- **A dedicated calendar.** Phases never land on the user's primary calendar, so they don't appear on a shared or work calendar by accident.
+- **One calendar, not one per phase.** Separate calendars would allow custom hex colors, but showing or hiding phases would then take four clicks instead of one. Emoji prefixes on the titles make the phases easy to tell apart instead.
+- **One event per phase, not per day.** This keeps the calendar readable and the sync fast.
+- **Free and private events.** Phases never block the user's availability in free/busy views, and their details stay hidden if the calendar is shared.
+- **Tagged events and wipe-and-rebuild sync.** Every event the script creates carries a private tag. Each sync deletes all tagged events and recreates them, so stale predictions can't survive and events added by hand are never touched.
+- **No data collection.** No server, no analytics and no network calls. A test fails the build if `UrlFetchApp` appears anywhere in the code.
