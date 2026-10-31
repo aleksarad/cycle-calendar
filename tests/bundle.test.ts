@@ -24,6 +24,19 @@ describe('Apps Script bundle', () => {
     expect(code).toMatch(new RegExp(`^function ${name}\\(`, 'm'));
   });
 
+  it('every function named by a menu item or trigger is an entry point', async () => {
+    const { EDIT_HANDLER, DAILY_HANDLER } = await import('../src/gas/triggers');
+    const menuSource = readFileSync('src/gas/menu.ts', 'utf8');
+    const menuHandlers = [...menuSource.matchAll(/\.addItem\('[^']*', '(\w+)'\)/g)].map(
+      (m) => m[1],
+    );
+
+    expect(menuHandlers).toEqual(['setup', 'syncNow', 'remove']);
+    for (const name of [...menuHandlers, EDIT_HANDLER, DAILY_HANDLER]) {
+      expect(ENTRY_POINTS).toContain(name);
+    }
+  });
+
   it('contains no ES module syntax', () => {
     expect(code).not.toMatch(/^\s*(export|import)\s/m);
   });

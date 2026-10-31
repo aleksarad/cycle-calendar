@@ -145,10 +145,10 @@ Generated from a single editable content module (`src/content/phases.ts`):
 
 - **Set up**: authorize, create calendar, install triggers (idempotent; never duplicates triggers)
 - **Sync now**
-- **Remove**: delete triggers and all tagged events, with a confirm dialog. Leaves the calendar itself for the user to delete.
+- **Remove**: delete triggers and all tagged events, with a confirm dialog. Leaves the calendar itself for the user to delete. Status records the removal and how to turn syncing back on.
   **Triggers:**
 - Installable `onEdit` trigger, because simple `onEdit` triggers can't access CalendarApp. Sync only when the edit is in the `Log` or `Settings` tab.
-- Daily time-based trigger (around 3am) that runs a sync, so the prediction window keeps rolling forward and Status (today's phase, late warning) stays current without edits.
+- Daily time-based trigger (around 3am in the spreadsheet's timezone) that runs a sync, so the prediction window keeps rolling forward and Status (today's phase, late warning) stays current without edits.
 - Guard against rapid successive edits with `LockService` so concurrent syncs can't duplicate events. Requests are **coalesced**: each one marks a sync as pending, and whoever holds the lock keeps syncing (at most 3 times in a row) until nothing is pending. An edit that arrives mid-sync is therefore picked up, never lost, and a burst of edits becomes one or two syncs.
 
 ---

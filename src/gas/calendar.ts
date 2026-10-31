@@ -25,24 +25,28 @@ function events(): GoogleAppsScript.Calendar.Collection.EventsCollection {
  * then creates it. Renames the calendar if the "Calendar name" setting changed.
  */
 export function getOrCreateCalendar(name: string): string {
-  const props = PropertiesService.getDocumentProperties();
-  const savedId = props.getProperty(CALENDAR_ID_PROPERTY);
-
   const calendar =
-    (savedId && CalendarApp.getCalendarById(savedId)) ||
-    CalendarApp.getCalendarsByName(name).find((c) => c.isOwnedByMe()) ||
+    findCalendar(name) ??
     CalendarApp.createCalendar(name, {
       summary: 'Estimated cycle phases, created by the Cycle Calendar spreadsheet.',
     });
 
   if (calendar.getName() !== name) calendar.setName(name);
-  if (calendar.getId() !== savedId) props.setProperty(CALENDAR_ID_PROPERTY, calendar.getId());
+  const props = PropertiesService.getDocumentProperties();
+  if (calendar.getId() !== props.getProperty(CALENDAR_ID_PROPERTY)) {
+    props.setProperty(CALENDAR_ID_PROPERTY, calendar.getId());
+  }
   return calendar.getId();
 }
 
-/** The saved calendar ID, without creating anything. */
-export function savedCalendarId(): string | null {
-  return PropertiesService.getDocumentProperties().getProperty(CALENDAR_ID_PROPERTY);
+/** The saved calendar, else one with this name that you own. Never creates one. */
+export function findCalendar(name: string): GoogleAppsScript.Calendar.Calendar | null {
+  const savedId = PropertiesService.getDocumentProperties().getProperty(CALENDAR_ID_PROPERTY);
+  return (
+    (savedId ? CalendarApp.getCalendarById(savedId) : null) ??
+    CalendarApp.getCalendarsByName(name).find((c) => c.isOwnedByMe()) ??
+    null
+  );
 }
 
 /** Deletes every event the script created (and nothing else). Returns how many. */

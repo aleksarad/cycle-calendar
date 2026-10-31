@@ -14,3 +14,9 @@ export function addMenu(): void {
 export function toast(message: string): void {
   SpreadsheetApp.getActiveSpreadsheet().toast(message, MENU_NAME);
 }
+
+/** A Yes/No dialog. Returns true only for Yes. */
+export function confirm(title: string, message: string): boolean {
+  const ui = SpreadsheetApp.getUi();
+  return ui.alert(title, message, ui.ButtonSet.YES_NO) === ui.Button.YES;
+}
