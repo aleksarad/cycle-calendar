@@ -29,7 +29,7 @@ describe('parseSettings', () => {
         ovulatory: '🌕 Ovulatory',
         luteal: '🌘 Luteal',
       },
-      colors: { menstrual: 'RED', follicular: 'GREEN', ovulatory: 'YELLOW', luteal: 'MAUVE' },
+      colors: { menstrual: 'PALE_RED', follicular: 'PALE_GREEN', ovulatory: 'PALE_BLUE', luteal: 'MAUVE' },
     });
   });
 
@@ -68,7 +68,7 @@ describe('parseSettings', () => {
 
   it('falls back on an unknown color name', () => {
     const { settings, warnings } = parseSettings(rawWith({ 'Ovulatory color': 'turquoise' }));
-    expect(settings.colors.ovulatory).toBe('YELLOW');
+    expect(settings.colors.ovulatory).toBe('PALE_BLUE');
     expect(warnings[0]).toContain('Ovulatory color');
   });
 

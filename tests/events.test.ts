@@ -70,12 +70,12 @@ describe('buildEvents', () => {
   });
 
   it('colors phases from Settings', () => {
-    expect(events.slice(0, 4).map((e) => e.colorId)).toEqual(['11', '10', '5', '3']);
+    expect(events.slice(0, 4).map((e) => e.colorId)).toEqual(['4', '2', '1', '3']);
     const custom = eventsFor(['2026-09-29'], {
       ...DEFAULT_SETTINGS,
-      colors: { ...DEFAULT_SETTINGS.colors, luteal: 'PALE_BLUE' },
+      colors: { ...DEFAULT_SETTINGS.colors, luteal: 'GRAY' },
     });
-    expect(custom.find((e) => e.summary.startsWith('🌘'))!.colorId).toBe('1');
+    expect(custom.find((e) => e.summary.startsWith('🌘'))!.colorId).toBe('8');
   });
 
   it('shows every event as free and private, with no reminders, tagged for sync', () => {

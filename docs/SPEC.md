@@ -44,7 +44,7 @@ Primary user: the author (personal use). Secondary: anyone who copies the templa
 | Months ahead                | 6                                                       | Prediction window                                                                    |
 | Calendar name               | Cycle Phases                                            | Dedicated calendar                                                                   |
 | Phase titles (×4)           | 🌑 Menstrual / 🌒 Follicular / 🌕 Ovulatory / 🌘 Luteal | User-renamable. The emoji prefixes make phases easy to tell apart from other events. |
-| Phase colors (×4)           | RED / GREEN / YELLOW / MAUVE                            | `CalendarApp.EventColor` names                                                       |
+| Phase colors (×4)           | PALE_RED / PALE_GREEN / PALE_BLUE / MAUVE               | `CalendarApp.EventColor` names                                                       |
 
 Invalid settings fall back to defaults and are reported in Status. Never throw on bad input.
 

@@ -20,7 +20,7 @@ export const DEFAULT_SETTINGS: Settings = {
     ovulatory: '🌕 Ovulatory',
     luteal: '🌘 Luteal',
   },
-  colors: { menstrual: 'RED', follicular: 'GREEN', ovulatory: 'YELLOW', luteal: 'MAUVE' },
+  colors: { menstrual: 'PALE_RED', follicular: 'PALE_GREEN', ovulatory: 'PALE_BLUE', luteal: 'MAUVE' },
 };
 
 type NumberKey =
